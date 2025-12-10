@@ -1,0 +1,2630 @@
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jurnal Kokurikuler</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    .signature-box {
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #9ca3af;
+      font-style: italic;
+    }
+    #paper-size-select {
+      cursor: pointer;
+    }
+    #paper-size-select option {
+      background-color: #065f46;
+      color: white;
+    }
+    @media print {
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+      @page.f4 {
+        size: 215.9mm 330.2mm;
+        margin: 2cm;
+      }
+      .no-print {
+        display: none !important;
+      }
+      body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+        margin: 0;
+        padding: 0;
+      }
+      #app {
+        height: auto !important;
+        overflow: visible !important;
+      }
+      .print-container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        box-shadow: none !important;
+      }
+      table {
+        page-break-inside: auto;
+      }
+      thead {
+        display: table-header-group;
+      }
+      tbody {
+        display: table-row-group;
+      }
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+      .signature-section {
+        page-break-inside: avoid;
+        page-break-before: auto;
+      }
+      .created-date-section {
+        page-break-inside: avoid;
+        page-break-after: avoid;
+      }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto bg-gray-50"></div>
+  <script>
+    const defaultConfig = {
+      app_title: "Jurnal Kokurikuler",
+      footer_text: "KONTRIBUTOR: MUH ICHSAN, Tahun 2025-2026",
+      primary_color: "#065f46",
+      secondary_color: "#047857",
+      background_color: "#f9fafb",
+      text_color: "#1f2937",
+      accent_color: "#ffffff",
+      font_family: "system-ui",
+      font_size: 16
+    };
+
+    let currentUser = null;
+    let currentView = 'login';
+    let currentData = [];
+    let editingGuru = null;
+    let editingJurnal = null;
+    let viewingJurnal = null;
+    let viewingGuruId = null;
+    let showAddSiswaForm = false;
+    let selectedPaperSize = localStorage.getItem('paperSize') || 'A4';
+
+    const KEGIATAN_MAPPING = {
+      "Program Pelayanan Sosial dan Tanggap Darurat melalui PMR": {
+        dimensi: "Kewargaan, Kolaborasi, Kepedulian",
+        tema: "Peduli Sesama, Siaga Dalam Aksi Kemanusiaan",
+        bentuk: "Pelatihan pertolongan pertama, simulasi penanganan bencana, donor darah, bakti sosial, aksi kemanusiaan, pelatihan evakuasi darurat",
+        tujuan: "Meningkatkan kepedulian sosial, kemampuan pertolongan pertama, dan kesiapsiagaan peserta didik dalam menghadapi situasi bencana dan keadaan darurat."
+      },
+      "Program Pengembangan Keterampilan Hidup dan Kewirausahaan Tata Boga": {
+        dimensi: "Kreativitas, Kemandirian",
+        tema: "Kreatif, Mandiri, dan Produktif melalui Karya Kuliner",
+        bentuk: "Workshop memasak, praktek membuat produk kuliner, demo chef tamu, penjualan produk makanan, lomba kreasi menu sehat",
+        tujuan: "Mengembangkan keterampilan memasak, manajemen usaha kuliner, serta membentuk jiwa wirausaha dan kemandirian ekonomi peserta didik."
+      },
+      "Program Pembentukan Jiwa Wirausaha Remaja Berbasis Proyek Usaha Sekolah": {
+        dimensi: "Kreativitas, Kemandirian, Penalaran Kritis",
+        tema: "Membangun Jiwa Entrepreneur Muda Unggul dan Inovatif",
+        bentuk: "Pembuatan bisnis plan, studi lapangan UMKM, simulasi usaha, bazar sekolah, manajemen keuangan sederhana",
+        tujuan: "Membentuk karakter kreatif, inovatif, dan produktif melalui pengalaman langsung menjalankan usaha sekolah secara profesional."
+      },
+      "Program Penguatan Akhlak Mulia melalui Tahfidz dan Pembiasaan Ibadah": {
+        dimensi: "Ketakwaan, Kemandirian",
+        tema: "Membentuk Generasi Berakhlak Mulia dan Cinta Al-Qur'an",
+        bentuk: "Tahfidz harian/mingguan, kultum, sholat dhuha dan dzikir bersama, mentoring karakter, kajian akhlak",
+        tujuan: "Membentuk peserta didik berakhlak mulia melalui pembiasaan ibadah, hafalan Al-Qur'an, dan penerapan nilai-nilai religius dalam kehidupan sehari-hari."
+      },
+      "Program Sekolah Berwawasan Lingkungan dan Adiwiyata": {
+        dimensi: "Kepedulian, Kolaborasi, Penalaran Kritis",
+        tema: "Sekolah Hijau Berbudaya Lingkungan",
+        bentuk: "Penanaman pohon, gerakan eco-school, bank sampah, lomba kebersihan kelas, audit lingkungan sekolah",
+        tujuan: "Mewujudkan budaya peduli lingkungan melalui pengelolaan lingkungan sekolah yang bersih, hijau, sehat, dan berkelanjutan."
+      },
+      "Program Pusat Informasi Konseling Remaja (PIK-R)": {
+        dimensi: "Kesehatan, Komunikasi, Penalaran Kritis",
+        tema: "Remaja Sehat, Cerdas, dan Berencana",
+        bentuk: "Konseling sebaya, seminar kesehatan reproduksi remaja, kampanye anti narkoba, pelatihan konselor muda",
+        tujuan: "Menyediakan layanan edukasi dan konseling untuk membantu remaja membuat keputusan sehat terkait perencanaan masa depan, kesehatan reproduksi, dan karakter."
+      },
+      "Program Seni Rupa dan Lukis Kreatif": {
+        dimensi: "Kreativitas, Kemandirian",
+        tema: "Ekspresi Diri melalui Seni dan Warna",
+        bentuk: "Kelas menggambar dan melukis, pameran karya, workshop media seni, lomba mural",
+        tujuan: "Mengembangkan bakat seni rupa peserta didik melalui kegiatan eksplorasi teknik melukis dan penciptaan karya kreatif."
+      },
+      "Program Kaligrafi dan Seni Tulisan Indah": {
+        dimensi: "Kreativitas, Ketakwaan, Kemandirian",
+        tema: "Keindahan Huruf, Kehalusan Jiwa Seni",
+        bentuk: "Pelatihan kaligrafi Arab/Latin, lomba kaligrafi, pembuatan dekorasi kaligrafi masjid/sekolah",
+        tujuan: "Menumbuhkan kecintaan terhadap seni kaligrafi dan melatih ketekunan, keindahan estetika, serta kedisiplinan dalam berkarya."
+      },
+      "Program Batik dan Kerajinan Tekstil Kreatif": {
+        dimensi: "Kreativitas, Kewargaan, Kemandirian",
+        tema: "Melestarikan Warisan Budaya Lewat Batik dan Tekstil Kreatif",
+        bentuk: "Workshop batik tulis dan cap, pewarnaan alami, pameran kriya tekstil, bazar produk batik",
+        tujuan: "Melestarikan warisan budaya batik serta meningkatkan keterampilan desain dan produksi kerajinan tekstil bernilai ekonomi."
+      },
+      "Program Kerajinan Daur Ulang Kreatif": {
+        dimensi: "Kreativitas, Kepedulian, Kemandirian",
+        tema: "Daur Ulang Cerdas Menuju Lingkungan Lestari",
+        bentuk: "Pembuatan kerajinan dari sampah plastik/kertas, pelatihan ecobrick, pameran karya daur ulang",
+        tujuan: "Mengembangkan kreativitas dan kepedulian terhadap lingkungan melalui pemanfaatan barang bekas menjadi produk baru yang bermanfaat."
+      },
+      "Program Green Tech Energi Terbarukan": {
+        dimensi: "Penalaran Kritis, Kreativitas, Kepedulian",
+        tema: "Teknologi Hijau untuk Masa Depan Berkelanjutan",
+        bentuk: "Praktikum panel surya mini, workshop micro-hydro, penelitian energi ramah lingkungan",
+        tujuan: "Menumbuhkan kesadaran teknologi ramah lingkungan melalui pembuatan dan pemahaman energi alternatif seperti panel surya dan biogas."
+      },
+      "Program Peningkatan Iman dan Taqwa (Rohis)": {
+        dimensi: "Ketakwaan, Komunikasi, Kolaborasi",
+        tema: "Menguatkan Spiritual untuk Membentuk Pribadi Berkarakter",
+        bentuk: "Kajian rutin, mentoring keagamaan, pesantren kilat, bakti Ramadan, lomba MTQ",
+        tujuan: "Membentuk karakter religius melalui kegiatan pembinaan rohani, kajian keagamaan, dan pembiasaan nilai moral Islami."
+      },
+      "Program Ketahanan Pangan dan Urban Farming": {
+        dimensi: "Kemandirian, Kepedulian, Penalaran Kritis",
+        tema: "Berkebun Modern untuk Ketahanan Pangan Sekolah",
+        bentuk: "Bertani hidroponik, aquaponik, budidaya sayur sekolah, panen dan bazar hasil tani",
+        tujuan: "Mengembangkan keterampilan bercocok tanam modern untuk mendukung ketahanan pangan dan menghasilkan produk sayuran sehat."
+      },
+      "Program Sejarah dan Budaya Nusantara": {
+        dimensi: "Kewargaan, Penalaran Kritis, Komunikasi",
+        tema: "Mengenal Jati Diri Bangsa melalui Budaya Nusantara",
+        bentuk: "Kunjungan museum, festival budaya sekolah, pameran budaya lokal, riset tokoh daerah",
+        tujuan: "Meningkatkan kecintaan dan pemahaman terhadap kekayaan budaya serta sejarah nasional sebagai identitas bangsa."
+      },
+      "Program Pecinta Alam dan Survival Adventure": {
+        dimensi: "Kemandirian, Kepedulian, Kesehatan",
+        tema: "Mencintai Alam Melatih Ketangguhan Diri",
+        bentuk: "Hiking, pelatihan survival, camping edukatif, konservasi alam",
+        tujuan: "Melatih kemandirian, kepemimpinan, dan kemampuan bertahan hidup di alam bebas sambil menumbuhkan rasa cinta lingkungan."
+      },
+      "Program Pecinta Satwa dan Animal Care": {
+        dimensi: "Kepedulian, Penalaran Kritis, Komunikasi",
+        tema: "Peduli Satwa untuk Harmoni Kehidupan",
+        bentuk: "Edukasi kesejahteraan hewan, kunjungan pusat konservasi, kampanye penyelamatan satwa",
+        tujuan: "Menumbuhkan rasa empati terhadap hewan melalui edukasi perawatan satwa dan pelestarian keanekaragaman hayati."
+      },
+      "Program Bela Negara dan Kepemimpinan Nasional": {
+        dimensi: "Kewargaan, Kemandirian, Kolaborasi",
+        tema: "Membangun Jiwa Nasionalisme dan Karakter Kepemimpinan",
+        bentuk: "Latihan baris berbaris, latihan kedisiplinan, leadership camp, seminar wawasan kebangsaan",
+        tujuan: "Menanamkan rasa cinta tanah air, disiplin, dan kepemimpinan melalui kegiatan kebangsaan dan latihan dasar kepemimpinan."
+      },
+      "Program Anti Perundungan dan Sahabat Karakter": {
+        dimensi: "Kepedulian, Komunikasi, Kolaborasi",
+        tema: "Stop Bullying, Jadilah Teman yang Menguatkan",
+        bentuk: "Forum diskusi anti bullying, kampanye poster, konseling karakter, deklarasi sekolah ramah",
+        tujuan: "Membangun lingkungan sekolah yang aman dan ramah melalui kampanye anti bullying dan penguatan karakter empati serta saling menghargai."
+      },
+      "Program Safety Riding dan Edukasi Lalu Lintas": {
+        dimensi: "Kesehatan, Penalaran Kritis, Kewargaan",
+        tema: "Berkendara Aman, Selamat Sampai Tujuan",
+        bentuk: "Edukasi keselamatan berkendara, simulasi rambu, praktik lapangan bersama kepolisian",
+        tujuan: "Menumbuhkan kesadaran keselamatan dalam berkendara dan disiplin berlalu lintas pada peserta didik sebagai calon pengendara yang bertanggung jawab."
+      },
+      "Program Pemberdayaan Sosial dan Volunteer Remaja": {
+        dimensi: "Kepedulian, Kolaborasi, Kewargaan",
+        tema: "Aksi Nyata Remaja untuk Perubahan Sosial",
+        bentuk: "Aksi relawan lingkungan, bakti sosial masyarakat, layanan donasi dan edukasi sosial",
+        tujuan: "Mengembangkan kepedulian sosial dan semangat kerelawanan melalui aksi nyata pemberdayaan masyarakat."
+      },
+      "Program Peningkatan Kebersihan dan Kesehatan Personal Hygiene": {
+        dimensi: "Kesehatan, Kemandirian, Kepedulian",
+        tema: "Hidup Bersih dan Sehat Dimulai dari Diri Sendiri",
+        bentuk: "Edukasi PHBS, kampanye cuci tangan, pemeriksaan kebersihan diri, gerakan Jumat bersih",
+        tujuan: "Meningkatkan kesadaran dan kebiasaan hidup bersih sehat melalui edukasi pola hidup higienis dan tindakan pencegahan penyakit."
+      }
+    };
+
+    const REFERENCE_DATA = {
+      kegiatanKokurikuler: [
+        "Program Pelayanan Sosial dan Tanggap Darurat melalui PMR",
+        "Program Pengembangan Keterampilan Hidup dan Kewirausahaan Tata Boga",
+        "Program Pembentukan Jiwa Wirausaha Remaja Berbasis Proyek Usaha Sekolah",
+        "Program Penguatan Akhlak Mulia melalui Tahfidz dan Pembiasaan Ibadah",
+        "Program Sekolah Berwawasan Lingkungan dan Adiwiyata",
+        "Program Pusat Informasi Konseling Remaja (PIK-R)",
+        "Program Seni Rupa dan Lukis Kreatif",
+        "Program Kaligrafi dan Seni Tulisan Indah",
+        "Program Batik dan Kerajinan Tekstil Kreatif",
+        "Program Kerajinan Daur Ulang Kreatif",
+        "Program Green Tech Energi Terbarukan",
+        "Program Peningkatan Iman dan Taqwa (Rohis)",
+        "Program Ketahanan Pangan dan Urban Farming",
+        "Program Sejarah dan Budaya Nusantara",
+        "Program Pecinta Alam dan Survival Adventure",
+        "Program Pecinta Satwa dan Animal Care",
+        "Program Bela Negara dan Kepemimpinan Nasional",
+        "Program Anti Perundungan dan Sahabat Karakter",
+        "Program Safety Riding dan Edukasi Lalu Lintas",
+        "Program Pemberdayaan Sosial dan Volunteer Remaja",
+        "Program Peningkatan Kebersihan dan Kesehatan Personal Hygiene"
+      ],
+      dimensiProfil: [
+        {
+          nama: "Ketakwaan",
+          deskripsi: "Peserta didik menunjukkan perilaku religius sesuai ajaran agamanya masing-masing. Mereka mampu menjalankan ibadah dengan konsisten, menjaga hubungan baik dengan sesama, serta menjadikan nilai-nilai spiritual sebagai landasan dalam mengambil keputusan dan bertindak dalam kehidupan sehari-hari."
+        },
+        {
+          nama: "Kewargaan",
+          deskripsi: "Peserta didik memahami hak dan kewajiban sebagai warga negara, menghargai keberagaman, serta berperan aktif dalam kehidupan bermasyarakat. Mereka memiliki kesadaran sosial, taat aturan, dan mampu memberikan kontribusi positif bagi lingkungan sekitar."
+        },
+        {
+          nama: "Penalaran Kritis",
+          deskripsi: "Peserta didik mampu menganalisis informasi secara mendalam, mengidentifikasi masalah, mengevaluasi argumen, serta mengambil keputusan berdasarkan fakta dan logika. Mereka juga terlatih untuk memecahkan masalah secara sistematis dan objektif."
+        },
+        {
+          nama: "Kreativitas",
+          deskripsi: "Peserta didik mampu menghasilkan gagasan baru, menemukan cara alternatif dalam menyelesaikan masalah, serta mengekspresikan ide secara orisinal. Kreativitas tampak dalam proses berpikir, karya, dan kemampuan mengadaptasi situasi untuk menghasilkan solusi inovatif."
+        },
+        {
+          nama: "Kolaborasi",
+          deskripsi: "Peserta didik mampu bekerja sama dengan orang lain secara efektif, menghargai pendapat, berbagi peran, serta membangun komunikasi positif dalam tim. Mereka siap berkontribusi dan bertanggung jawab untuk mencapai tujuan bersama."
+        },
+        {
+          nama: "Kemandirian",
+          deskripsi: "Peserta didik mampu mengatur diri sendiri, mengelola waktu dan tugas secara mandiri, serta mengambil inisiatif dalam belajar. Mereka memiliki motivasi internal untuk berkembang dan mampu membuat keputusan secara bertanggung jawab."
+        },
+        {
+          nama: "Kesehatan",
+          deskripsi: "Peserta didik menjaga kesejahteraan fisik dan mental, menerapkan pola hidup sehat, serta mampu mengelola stres. Mereka memahami pentingnya menjaga kesehatan sebagai bagian dari kesiapan belajar dan beraktivitas secara optimal."
+        },
+        {
+          nama: "Komunikasi",
+          deskripsi: "Peserta didik mampu menyampaikan informasi dan gagasan dengan jelas, sopan, dan efektif, baik secara lisan, tulisan, maupun menggunakan media digital. Mereka juga terampil dalam mendengarkan dan membangun interaksi yang positif dengan orang lain."
+        }
+      ],
+      temaKegiatan: [
+        "Peduli Sesama, Siaga Dalam Aksi Kemanusiaan",
+        "Kreatif, Mandiri, dan Produktif melalui Karya Kuliner",
+        "Membangun Jiwa Entrepreneur Muda Unggul dan Inovatif",
+        "Membentuk Generasi Berakhlak Mulia dan Cinta Al-Qur'an",
+        "Sekolah Hijau Berbudaya Lingkungan",
+        "Remaja Sehat, Cerdas, dan Berencana",
+        "Ekspresi Diri melalui Seni dan Warna",
+        "Keindahan Huruf, Kehalusan Jiwa Seni",
+        "Melestarikan Warisan Budaya Lewat Batik dan Tekstil Kreatif",
+        "Daur Ulang Cerdas Menuju Lingkungan Lestari",
+        "Teknologi Hijau untuk Masa Depan Berkelanjutan",
+        "Menguatkan Spiritual untuk Membentuk Pribadi Berkarakter",
+        "Berkebun Modern untuk Ketahanan Pangan Sekolah",
+        "Mengenal Jati Diri Bangsa melalui Budaya Nusantara",
+        "Mencintai Alam Melatih Ketangguhan Diri",
+        "Peduli Satwa untuk Harmoni Kehidupan",
+        "Membangun Jiwa Nasionalisme dan Karakter Kepemimpinan",
+        "Stop Bullying, Jadilah Teman yang Menguatkan",
+        "Berkendara Aman, Selamat Sampai Tujuan",
+        "Aksi Nyata Remaja untuk Perubahan Sosial",
+        "Hidup Bersih dan Sehat Dimulai dari Diri Sendiri"
+      ],
+      bentukKegiatan: [
+        "Pelatihan pertolongan pertama, simulasi penanganan bencana, donor darah, bakti sosial, aksi kemanusiaan, pelatihan evakuasi darurat",
+        "Workshop memasak, praktek membuat produk kuliner, demo chef tamu, penjualan produk makanan, lomba kreasi menu sehat",
+        "Pembuatan bisnis plan, studi lapangan UMKM, simulasi usaha, bazar sekolah, manajemen keuangan sederhana",
+        "Tahfidz harian/mingguan, kultum, sholat dhuha dan dzikir bersama, mentoring karakter, kajian akhlak",
+        "Penanaman pohon, gerakan eco-school, bank sampah, lomba kebersihan kelas, audit lingkungan sekolah",
+        "Konseling sebaya, seminar kesehatan reproduksi remaja, kampanye anti narkoba, pelatihan konselor muda",
+        "Kelas menggambar dan melukis, pameran karya, workshop media seni, lomba mural",
+        "Pelatihan kaligrafi Arab/Latin, lomba kaligrafi, pembuatan dekorasi kaligrafi masjid/sekolah",
+        "Workshop batik tulis dan cap, pewarnaan alami, pameran kriya tekstil, bazar produk batik",
+        "Pembuatan kerajinan dari sampah plastik/kertas, pelatihan ecobrick, pameran karya daur ulang",
+        "Praktikum panel surya mini, workshop micro-hydro, penelitian energi ramah lingkungan",
+        "Kajian rutin, mentoring keagamaan, pesantren kilat, bakti Ramadan, lomba MTQ",
+        "Bertani hidroponik, aquaponik, budidaya sayur sekolah, panen dan bazar hasil tani",
+        "Kunjungan museum, festival budaya sekolah, pameran budaya lokal, riset tokoh daerah",
+        "Hiking, pelatihan survival, camping edukatif, konservasi alam",
+        "Edukasi kesejahteraan hewan, kunjungan pusat konservasi, kampanye penyelamatan satwa",
+        "Latihan baris berbaris, latihan kedisiplinan, leadership camp, seminar wawasan kebangsaan",
+        "Forum diskusi anti bullying, kampanye poster, konseling karakter, deklarasi sekolah ramah",
+        "Edukasi keselamatan berkendara, simulasi rambu, praktik lapangan bersama kepolisian",
+        "Aksi relawan lingkungan, bakti sosial masyarakat, layanan donasi dan edukasi sosial",
+        "Edukasi PHBS, kampanye cuci tangan, pemeriksaan kebersihan diri, gerakan Jumat bersih"
+      ],
+      tujuanKegiatan: [
+        "Meningkatkan kepedulian sosial, kemampuan pertolongan pertama, dan kesiapsiagaan peserta didik dalam menghadapi situasi bencana dan keadaan darurat.",
+        "Mengembangkan keterampilan memasak, manajemen usaha kuliner, serta membentuk jiwa wirausaha dan kemandirian ekonomi peserta didik.",
+        "Membentuk karakter kreatif, inovatif, dan produktif melalui pengalaman langsung menjalankan usaha sekolah secara profesional.",
+        "Membentuk peserta didik berakhlak mulia melalui pembiasaan ibadah, hafalan Al-Qur'an, dan penerapan nilai-nilai religius dalam kehidupan sehari-hari.",
+        "Mewujudkan budaya peduli lingkungan melalui pengelolaan lingkungan sekolah yang bersih, hijau, sehat, dan berkelanjutan.",
+        "Menyediakan layanan edukasi dan konseling untuk membantu remaja membuat keputusan sehat terkait perencanaan masa depan, kesehatan reproduksi, dan karakter.",
+        "Mengembangkan bakat seni rupa peserta didik melalui kegiatan eksplorasi teknik melukis dan penciptaan karya kreatif.",
+        "Menumbuhkan kecintaan terhadap seni kaligrafi dan melatih ketekunan, keindahan estetika, serta kedisiplinan dalam berkarya.",
+        "Melestarikan warisan budaya batik serta meningkatkan keterampilan desain dan produksi kerajinan tekstil bernilai ekonomi.",
+        "Mengembangkan kreativitas dan kepedulian terhadap lingkungan melalui pemanfaatan barang bekas menjadi produk baru yang bermanfaat.",
+        "Menumbuhkan kesadaran teknologi ramah lingkungan melalui pembuatan dan pemahaman energi alternatif seperti panel surya dan biogas.",
+        "Membentuk karakter religius melalui kegiatan pembinaan rohani, kajian keagamaan, dan pembiasaan nilai moral Islami.",
+        "Mengembangkan keterampilan bercocok tanam modern untuk mendukung ketahanan pangan dan menghasilkan produk sayuran sehat.",
+        "Meningkatkan kecintaan dan pemahaman terhadap kekayaan budaya serta sejarah nasional sebagai identitas bangsa.",
+        "Melatih kemandirian, kepemimpinan, dan kemampuan bertahan hidup di alam bebas sambil menumbuhkan rasa cinta lingkungan.",
+        "Menumbuhkan rasa empati terhadap hewan melalui edukasi perawatan satwa dan pelestarian keanekaragaman hayati.",
+        "Menanamkan rasa cinta tanah air, disiplin, dan kepemimpinan melalui kegiatan kebangsaan dan latihan dasar kepemimpinan.",
+        "Membangun lingkungan sekolah yang aman dan ramah melalui kampanye anti bullying dan penguatan karakter empati serta saling menghargai.",
+        "Menumbuhkan kesadaran keselamatan dalam berkendara dan disiplin berlalu lintas pada peserta didik sebagai calon pengendara yang bertanggung jawab.",
+        "Mengembangkan kepedulian sosial dan semangat kerelawanan melalui aksi nyata pemberdayaan masyarakat.",
+        "Meningkatkan kesadaran dan kebiasaan hidup bersih sehat melalui edukasi pola hidup higienis dan tindakan pencegahan penyakit."
+      ]
+    };
+
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => document.body.removeChild(toast), 3000);
+    }
+
+    function showPrintPreview() {
+      const printContent = document.querySelector('.print-container').cloneNode(true);
+      const siswaSection = document.querySelectorAll('.bg-white.rounded-lg.shadow-md.p-6')[1];
+      const signatureSection = document.querySelectorAll('.bg-white.rounded-lg.shadow-md.p-6')[2];
+      
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+      modal.style.background = 'rgba(0, 0, 0, 0.9)';
+      
+      modal.innerHTML = `
+        <div class="bg-white rounded-lg w-full max-w-4xl h-full max-h-screen flex flex-col">
+          <div class="flex justify-between items-center p-4 border-b">
+            <h3 class="text-xl font-bold">👁️ Print Preview</h3>
+            <div class="flex gap-2">
+              <button onclick="window.print()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                🖨️ Cetak Sekarang
+              </button>
+              <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                ✕ Tutup
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 overflow-auto p-8 bg-gray-100">
+            <div id="preview-content" class="bg-white shadow-2xl mx-auto" style="width: 21cm; min-height: 29.7cm; padding: 2cm;">
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      const previewContainer = modal.querySelector('#preview-content');
+      previewContainer.appendChild(printContent);
+      
+      if (siswaSection) {
+        const siswaClone = siswaSection.cloneNode(true);
+        siswaClone.querySelectorAll('.no-print').forEach(el => el.remove());
+        previewContainer.appendChild(siswaClone);
+      }
+      
+      if (signatureSection) {
+        const signatureClone = signatureSection.cloneNode(true);
+        previewContainer.appendChild(signatureClone);
+      }
+    }
+
+    function printJurnalDetail() {
+      try {
+        // Terapkan ukuran kertas yang dipilih
+        const paperSize = selectedPaperSize || 'A4';
+        const style = document.createElement('style');
+        style.id = 'dynamic-print-style';
+        
+        // Hapus style lama jika ada
+        const oldStyle = document.getElementById('dynamic-print-style');
+        if (oldStyle) {
+          oldStyle.remove();
+        }
+        
+        if (paperSize === 'F4') {
+          style.textContent = `
+            @media print {
+              @page {
+                size: 215.9mm 330.2mm;
+                margin: 2cm;
+              }
+            }
+          `;
+        } else {
+          style.textContent = `
+            @media print {
+              @page {
+                size: A4;
+                margin: 2cm;
+              }
+            }
+          `;
+        }
+        
+        document.head.appendChild(style);
+        
+        // Gunakan window.print() langsung karena sudah ada styling print di CSS
+        window.print();
+      } catch (error) {
+        console.error('Print error:', error);
+        showToast('❌ Gagal membuka dialog cetak: ' + error.message);
+      }
+    }
+
+    function backupData() {
+      if (!currentData || currentData.length === 0) {
+        showToast('⚠�� Tidak ada data untuk di-backup!');
+        return;
+      }
+      
+      try {
+        const backupData = {
+          timestamp: new Date().toISOString(),
+          version: "1.0",
+          data: currentData
+        };
+        
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `jurnal-backup-${new Date().toISOString().split('T')[0]}.json`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        
+        setTimeout(() => {
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
+          URL.revokeObjectURL(url);
+        }, 200);
+        
+        showToast('✅ Backup berhasil diunduh!');
+      } catch (error) {
+        showToast('❌ Gagal membuat backup: ' + error.message);
+        console.error('Backup error:', error);
+      }
+    }
+
+    function restoreData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const backupData = JSON.parse(e.target.result);
+          
+          if (!backupData.data || !Array.isArray(backupData.data)) {
+            showToast('❌ File backup tidak valid!');
+            event.target.value = '';
+            return;
+          }
+          
+          const container = document.createElement('div');
+          container.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+          container.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 class="text-lg font-bold mb-4">⚠️ Konfirmasi Restore</h3>
+              <p class="mb-6">Restore data akan menghapus semua data yang ada saat ini dan menggantinya dengan data dari backup (${backupData.data.length} record). Apakah Anda yakin?</p>
+              <div class="flex gap-3">
+                <button id="confirm-restore" class="flex-1 px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700">Ya, Restore</button>
+                <button id="cancel-restore" class="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300 hover:bg-gray-100">Batal</button>
+              </div>
+            </div>
+          `;
+          
+          document.body.appendChild(container);
+          
+          document.getElementById('confirm-restore').onclick = () => {
+            const confirmBtn = document.getElementById('confirm-restore');
+            const cancelBtn = document.getElementById('cancel-restore');
+            confirmBtn.disabled = true;
+            cancelBtn.disabled = true;
+            confirmBtn.textContent = '⏳ Menghapus data lama...';
+            
+            try {
+              // Hapus semua data lama
+              currentData = [];
+              saveDataToStorage(currentData);
+              
+              confirmBtn.textContent = `⏳ Menambahkan ${backupData.data.length} data...`;
+              
+              // Tambahkan data baru dari backup (tanpa __backendId)
+              let addedCount = 0;
+              for (const record of backupData.data) {
+                const cleanRecord = { ...record };
+                delete cleanRecord.__backendId;
+                const result = createData(cleanRecord);
+                if (result.isOk) {
+                  addedCount++;
+                } else {
+                  console.error('Create error:', result.error);
+                }
+              }
+              
+              showToast(`✅ Data berhasil di-restore! (${addedCount} record)`);
+              document.body.removeChild(container);
+            } catch (error) {
+              showToast('❌ Gagal restore data: ' + error.message);
+              console.error('Restore error:', error);
+              if (document.body.contains(container)) {
+                document.body.removeChild(container);
+              }
+            }
+            
+            event.target.value = '';
+          };
+          
+          document.getElementById('cancel-restore').onclick = () => {
+            document.body.removeChild(container);
+            event.target.value = '';
+          };
+          
+        } catch (error) {
+          showToast('❌ Gagal membaca file backup: ' + error.message);
+          console.error('Parse error:', error);
+          event.target.value = '';
+        }
+      };
+      
+      reader.onerror = () => {
+        showToast('❌ Gagal membaca file!');
+        event.target.value = '';
+      };
+      
+      reader.readAsText(file);
+    }
+
+    function toggleMapelField() {
+      const peran = document.getElementById('guru_peran').value;
+      const mapelContainer = document.getElementById('mapel_container');
+      const mapelInput = document.getElementById('guru_mapel');
+      
+      if (peran === 'kepala_sekolah') {
+        mapelContainer.style.display = 'none';
+        mapelInput.value = '';
+      } else {
+        mapelContainer.style.display = 'block';
+      }
+    }
+
+    function showMenu(menu) {
+      // Validasi akses: hanya guru yang bisa mengakses buat-jurnal dan riwayat-jurnal
+      if ((menu === 'buat-jurnal' || menu === 'riwayat-jurnal') && currentUser && currentUser.role !== 'guru') {
+        showToast('Menu ini hanya dapat diakses oleh Guru');
+        return;
+      }
+      
+      currentView = menu;
+      editingJurnal = null;
+      viewingJurnal = null;
+      showAddSiswaForm = false;
+      render();
+    }
+    
+    function viewGuruJurnals(guruId) {
+      const guru = currentData.find(d => d.type === 'user' && d.id === guruId);
+      
+      if (!guru) {
+        showToast('Data guru tidak ditemukan');
+        return;
+      }
+      
+      // Simpan data untuk view detail
+      viewingGuruId = guruId;
+      currentView = 'detail-guru-jurnals';
+      render();
+    }
+
+    function viewJurnalDetail(id) {
+      viewingJurnal = currentData.find(d => d.id === id);
+      currentView = 'detail-jurnal';
+      showAddSiswaForm = false;
+      render();
+    }
+
+    function toggleAddSiswaForm() {
+      showAddSiswaForm = !showAddSiswaForm;
+      render();
+    }
+
+    function saveSiswa(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      if (currentData.filter(d => d.type === 'siswa').length >= 999) {
+        showToast('Batas maksimum 999 siswa tercapai');
+        return;
+      }
+
+      const namaSiswaInput = document.getElementById('nama_siswa');
+      const noIndukInput = document.getElementById('no_induk');
+      const kelasInput = document.getElementById('kelas');
+      const keaktifanInput = document.getElementById('keaktifan');
+      const catatanInput = document.getElementById('catatan_khusus');
+
+      if (!namaSiswaInput || !noIndukInput || !kelasInput || !keaktifanInput) {
+        showToast('Form tidak ditemukan. Silakan coba lagi.');
+        return;
+      }
+
+      const siswaData = {
+        id: Date.now().toString(),
+        type: 'siswa',
+        timestamp: new Date().toISOString(),
+        jurnal_id: viewingJurnal.id,
+        nama_siswa: namaSiswaInput.value.trim(),
+        no_induk: noIndukInput.value.trim(),
+        kelas: kelasInput.value.trim(),
+        keaktifan: keaktifanInput.value,
+        catatan_khusus: catatanInput ? catatanInput.value.trim() : ''
+      };
+
+      if (!siswaData.nama_siswa || !siswaData.no_induk || !siswaData.kelas || !siswaData.keaktifan) {
+        showToast('Mohon lengkapi semua field yang wajib diisi');
+        return;
+      }
+
+      const result = createData(siswaData);
+      
+      if (result.isOk) {
+        showToast('Data siswa berhasil ditambahkan');
+        const form = document.getElementById('form-siswa');
+        if (form) {
+          form.reset();
+        }
+        showAddSiswaForm = false;
+        render();
+      } else {
+        showToast('Gagal menambahkan data siswa');
+      }
+    }
+
+    function editJurnal(id) {
+      editingJurnal = currentData.find(d => d.id === id);
+      currentView = 'edit-jurnal';
+      render();
+    }
+
+    function addSekolah(event) {
+      event.preventDefault();
+      
+      if (currentData.filter(d => d.type === 'sekolah').length >= 999) {
+        showToast('Batas maksimum 999 data sekolah tercapai');
+        return;
+      }
+
+      const sekolahData = {
+        id: Date.now().toString(),
+        type: 'sekolah',
+        timestamp: new Date().toISOString(),
+        nama_sekolah: document.getElementById('nama_sekolah').value,
+        npsn: document.getElementById('npsn').value,
+        alamat_lengkap: document.getElementById('alamat_lengkap').value,
+        kecamatan: document.getElementById('kecamatan').value,
+        kabupaten: document.getElementById('kabupaten').value,
+        kepala_sekolah: document.getElementById('kepala_sekolah').value,
+        nip_kepala_sekolah: document.getElementById('nip_kepala_sekolah').value,
+        tahun_pelajaran: document.getElementById('tahun_pelajaran').value,
+        status: 'active'
+      };
+
+      const result = createData(sekolahData);
+      
+      if (result.isOk) {
+        showToast('Data sekolah berhasil ditambahkan');
+        document.getElementById('form-sekolah').reset();
+      } else {
+        showToast('Gagal menambahkan data sekolah');
+      }
+    }
+
+    function saveGuru(event) {
+      event.preventDefault();
+      
+      if (!editingGuru && currentData.filter(d => d.type === 'user').length >= 999) {
+        showToast('Batas maksimum 999 data user tercapai');
+        return;
+      }
+
+      const username = document.getElementById('guru_username').value;
+      const password = document.getElementById('guru_password').value;
+      
+      const guruData = {
+        nama_lengkap: document.getElementById('guru_nama').value,
+        nip_nuptk: document.getElementById('guru_nip').value,
+        asal_sekolah: document.getElementById('guru_sekolah').value,
+        mata_pelajaran: document.getElementById('guru_mapel').value,
+        peran: document.getElementById('guru_peran').value,
+        username: username,
+        password: password || username,
+      };
+
+      let result;
+      if (editingGuru) {
+        const updatedData = { 
+          ...editingGuru, 
+          ...guruData,
+          password: password || editingGuru.password
+        };
+        result = updateData(updatedData);
+      } else {
+        const newData = {
+          ...guruData,
+          id: Date.now().toString(),
+          type: 'user',
+          timestamp: new Date().toISOString(),
+          status: 'active'
+        };
+        result = createData(newData);
+      }
+      
+      if (result.isOk) {
+        showToast(editingGuru ? 'Data user berhasil diupdate' : 'Data user berhasil ditambahkan');
+        editingGuru = null;
+        document.getElementById('form-guru').reset();
+      } else {
+        showToast('Gagal menyimpan data user');
+      }
+    }
+
+    function editGuru(id) {
+      editingGuru = currentData.find(d => d.id === id);
+      render();
+    }
+
+    function cancelEditGuru() {
+      editingGuru = null;
+      render();
+    }
+
+    function deleteData(record) {
+      const container = document.createElement('div');
+      container.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+      container.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full">
+          <h3 class="text-lg font-bold mb-4">Konfirmasi Hapus</h3>
+          <p class="mb-6">Apakah Anda yakin ingin menghapus data ini?</p>
+          <div class="flex gap-3">
+            <button id="confirm-delete" class="flex-1 px-4 py-2 rounded-lg text-white bg-red-600">Hapus</button>
+            <button id="cancel-delete" class="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300">Batal</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(container);
+      
+      document.getElementById('confirm-delete').onclick = () => {
+        const result = deleteDataFromStorage(record);
+        
+        if (result.isOk) {
+          showToast('Data berhasil dihapus');
+        } else {
+          showToast('Gagal menghapus data');
+        }
+        document.body.removeChild(container);
+      };
+      
+      document.getElementById('cancel-delete').onclick = () => {
+        document.body.removeChild(container);
+      };
+    }
+
+    function handleLogin(event) {
+      event.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const role = document.getElementById('role').value;
+
+      if (role === 'admin' && username === 'admin' && password === 'admin') {
+        currentUser = { username, role: 'admin', nama: 'Administrator' };
+        currentView = 'dashboard';
+        render();
+      } else {
+        const user = currentData.find(d => 
+          d.type === 'user' && 
+          d.username === username && 
+          d.password === password &&
+          d.peran === role
+        );
+        
+        if (user) {
+          currentUser = { 
+            username: user.username, 
+            role: user.peran, 
+            nama: user.nama_lengkap,
+            userId: user.id
+          };
+          currentView = 'user-dashboard';
+          render();
+          showToast(`Selamat datang, ${user.nama_lengkap}!`);
+        } else {
+          showToast('Username, password, atau peran salah!');
+        }
+      }
+    }
+
+    function saveJurnal(event) {
+      event.preventDefault();
+      
+      if (!editingJurnal && currentData.filter(d => d.type === 'jurnal').length >= 999) {
+        showToast('Batas maksimum 999 jurnal tercapai');
+        return;
+      }
+
+      const jurnalData = {
+        nama_kegiatan: document.getElementById('nama_kegiatan').value,
+        dimensi: document.getElementById('dimensi').value,
+        tema: document.getElementById('tema').value,
+        bentuk: document.getElementById('bentuk').value,
+        tujuan: document.getElementById('tujuan').value,
+        tanggal_kegiatan: document.getElementById('tanggal_kegiatan').value,
+        durasi: document.getElementById('durasi').value,
+        lokasi: document.getElementById('lokasi').value,
+        jumlah_siswa: parseInt(document.getElementById('jumlah_siswa').value),
+        deskripsi: document.getElementById('deskripsi').value,
+      };
+
+      let result;
+      if (editingJurnal) {
+        const updatedData = { 
+          ...editingJurnal, 
+          ...jurnalData
+        };
+        result = updateData(updatedData);
+      } else {
+        const newData = {
+          ...jurnalData,
+          id: Date.now().toString(),
+          type: 'jurnal',
+          timestamp: new Date().toISOString(),
+          guru_id: currentUser.userId,
+          status: 'draft'
+        };
+        result = createData(newData);
+      }
+
+      if (result.isOk) {
+        showToast(editingJurnal ? 'Jurnal berhasil diupdate!' : 'Jurnal kegiatan berhasil disimpan!');
+        editingJurnal = null;
+        document.getElementById('form-jurnal').reset();
+        currentView = 'riwayat-jurnal';
+        render();
+      } else {
+        showToast('Gagal menyimpan jurnal kegiatan');
+      }
+    }
+
+    function autoFillKegiatan() {
+      const namaKegiatan = document.getElementById('nama_kegiatan').value;
+      const mapping = KEGIATAN_MAPPING[namaKegiatan];
+      
+      if (mapping) {
+        document.getElementById('dimensi').value = mapping.dimensi;
+        document.getElementById('tema').value = mapping.tema;
+        document.getElementById('bentuk').value = mapping.bentuk;
+        document.getElementById('tujuan').value = mapping.tujuan;
+      }
+    }
+
+    function attachEventListeners() {
+      // Event listeners untuk elemen lain jika diperlukan
+      // Backup dan Restore sekarang menggunakan onclick langsung di HTML
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      
+      if (currentView === 'detail-jurnal' && viewingJurnal) {
+        const siswaList = currentData.filter(d => d.type === 'siswa' && d.jurnal_id === viewingJurnal.id);
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white no-print" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                  <button onclick="viewingJurnal=null; showAddSiswaForm=false; currentView=${currentUser && currentUser.role === 'guru' ? "'riwayat-jurnal'" : "'rekap-jurnal'"}; render();" class="mb-4 flex items-center no-print">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Detail Jurnal Kegiatan</h1>
+                <div class="flex gap-2 no-print items-center">
+                  <select id="paper-size-select" onchange="selectedPaperSize = this.value; localStorage.setItem('paperSize', this.value);" class="px-3 py-2 bg-white bg-opacity-20 rounded-lg text-white border border-white border-opacity-30 focus:outline-none focus:bg-opacity-30">
+                    <option value="A4" ${selectedPaperSize === 'A4' ? 'selected' : ''}>A4</option>
+                    <option value="F4" ${selectedPaperSize === 'F4' ? 'selected' : ''}>F4</option>
+                  </select>
+                  <button onclick="printJurnalDetail()" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg flex items-center gap-2 hover:bg-opacity-30 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    Cetak
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="bg-white rounded-lg shadow-md p-6 mb-4 print-container">
+                ${(() => {
+                  const userRecord = currentData.find(d => d.type === 'user' && d.id === currentUser.userId);
+                  const sekolahUser = userRecord ? userRecord.asal_sekolah : '';
+                  const sekolahData = currentData.find(d => d.type === 'sekolah' && d.nama_sekolah === sekolahUser);
+                  
+                  if (sekolahData) {
+                    return `
+                      <div class="text-center mb-3 pb-3 border-b-2 border-gray-800">
+                        <h1 class="text-xl font-bold uppercase mb-0.5">PEMERINTAH KABUPATEN WONOGIRI</h1>
+                        <h2 class="text-lg font-bold uppercase mb-0.5">DINAS PENDIDIKAN DAN KEBUDAYAAN</h2>
+                        <h3 class="text-lg font-bold uppercase mb-0.5">${sekolahData.nama_sekolah}</h3>
+                        <p class="text-sm mt-1">${sekolahData.alamat_lengkap}, ${sekolahData.kecamatan}, ${sekolahData.kabupaten}</p>
+                      </div>
+                    `;
+                  } else {
+                    return `
+                      <div class="text-center mb-3 pb-3 border-b-2 border-gray-800">
+                        <h1 class="text-xl font-bold uppercase mb-0.5">PEMERINTAH KABUPATEN WONOGIRI</h1>
+                        <h2 class="text-lg font-bold uppercase mb-0.5">DINAS PENDIDIKAN DAN KEBUDAYAAN</h2>
+                        <h3 class="text-lg font-bold uppercase mb-0.5">[Nama Sekolah]</h3>
+                        <p class="text-sm mt-1">[Alamat Sekolah]</p>
+                      </div>
+                    `;
+                  }
+                })()}
+                
+                <h2 class="text-lg font-bold mb-2 text-center uppercase" style="color: ${config.primary_color};">LAPORAN PEMBELAJARAN KOKURIKULER DEEP LEARNING</h2>
+                <h2 class="text-xl font-bold mb-4 text-center" style="color: ${config.primary_color};">${viewingJurnal.nama_kegiatan}</h2>
+                
+                <table class="w-full border-collapse mb-4">
+                  <tbody>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold w-1/3">Tanggal Kegiatan</td>
+                      <td class="border border-gray-300 px-4 py-1">${new Date(viewingJurnal.tanggal_kegiatan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Durasi/Alokasi Waktu</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.durasi} menit</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Jumlah Siswa</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.jumlah_siswa} siswa</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Lokasi/Tempat</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.lokasi}</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Dimensi Profil Lulusan</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.dimensi}</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Tema Kegiatan</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.tema}</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Bentuk Kegiatan</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.bentuk}</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Tujuan Kegiatan</td>
+                      <td class="border border-gray-300 px-4 py-1">${viewingJurnal.tujuan}</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-300 px-4 py-1 bg-gray-50 font-bold">Deskripsi Kegiatan</td>
+                      <td class="border border-gray-300 px-4 py-1 whitespace-pre-line">${viewingJurnal.deskripsi || '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+              <!-- Daftar Siswa Section -->
+                <div class="mt-4 pt-4">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="text-xl font-bold" style="color: ${config.primary_color};">Daftar Siswa</h3>
+                  <button onclick="toggleAddSiswaForm()" class="no-print px-4 py-2 rounded-lg text-white flex items-center gap-2" style="background: ${config.secondary_color};">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Tambah Siswa
+                  </button>
+                </div>
+
+                ${showAddSiswaForm ? `
+                  <div class="no-print bg-gray-50 rounded-lg p-4 mb-4 border-2 border-gray-200">
+                    <h4 class="font-bold mb-3">Form Tambah Siswa</h4>
+                    <form id="form-siswa" onsubmit="saveSiswa(event); return false;" class="space-y-3">
+                      <input type="text" id="nama_siswa" required placeholder="Nama Siswa" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" autocomplete="off">
+                      <input type="text" id="no_induk" required placeholder="No Induk" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" autocomplete="off">
+                      <input type="text" id="kelas" required placeholder="Kelas (contoh: X IPA 1)" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" autocomplete="off">
+                      <select id="keaktifan" required class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                        <option value="">Pilih Keaktifan</option>
+                        <option value="Sangat Aktif">Sangat Aktif</option>
+                        <option value="Aktif">Aktif</option>
+                        <option value="Cukup Aktif">Cukup Aktif</option>
+                        <option value="Kurang Aktif">Kurang Aktif</option>
+                      </select>
+                      <textarea id="catatan_khusus" placeholder="Catatan Khusus (opsional)" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" rows="2" autocomplete="off"></textarea>
+                      <div class="flex gap-2">
+                        <button type="submit" class="flex-1 py-2 rounded-lg text-white" style="background: ${config.primary_color};">Simpan</button>
+                        <button type="button" onclick="toggleAddSiswaForm()" class="px-4 py-2 rounded-lg border-2 border-gray-300">Batal</button>
+                      </div>
+                    </form>
+                  </div>
+                ` : ''}
+
+                ${siswaList.length === 0 ? `
+                  <div class="text-center py-8 text-gray-500">
+                    <p>Belum ada data siswa</p>
+                    <p class="text-sm">Klik tombol "Tambah Siswa" untuk menambahkan</p>
+                  </div>
+                ` : `
+                  <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                      <thead>
+                        <tr style="background: ${config.primary_color};" class="text-white">
+                          <th class="border border-gray-300 px-4 py-2 text-center text-sm font-semibold">NO</th>
+                          <th class="border border-gray-300 px-4 py-2 text-left text-sm font-semibold">NAMA SISWA</th>
+                          <th class="border border-gray-300 px-4 py-2 text-center text-sm font-semibold">NO INDUK</th>
+                          <th class="border border-gray-300 px-4 py-2 text-center text-sm font-semibold">KELAS</th>
+                          <th class="border border-gray-300 px-4 py-2 text-center text-sm font-semibold">KEAKTIFAN</th>
+                          <th class="border border-gray-300 px-4 py-2 text-left text-sm font-semibold">CATATAN KHUSUS</th>
+                          <th class="no-print border border-gray-300 px-4 py-2 text-center text-sm font-semibold">AKSI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${siswaList.map((siswa, index) => `
+                          <tr class="hover:bg-gray-50">
+                            <td class="border border-gray-300 px-4 py-1 text-center">${index + 1}</td>
+                            <td class="border border-gray-300 px-4 py-1">${siswa.nama_siswa}</td>
+                            <td class="border border-gray-300 px-4 py-1 text-center">${siswa.no_induk}</td>
+                            <td class="border border-gray-300 px-4 py-1 text-center">${siswa.kelas}</td>
+                            <td class="border border-gray-300 px-4 py-1 text-center">
+                              <span class="px-2 py-1 rounded text-xs font-semibold ${
+                                siswa.keaktifan === 'Sangat Aktif' ? 'bg-green-100 text-green-800' :
+                                siswa.keaktifan === 'Aktif' ? 'bg-blue-100 text-blue-800' :
+                                siswa.keaktifan === 'Cukup Aktif' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }">
+                                ${siswa.keaktifan}
+                              </span>
+                            </td>
+                            <td class="border border-gray-300 px-4 py-1">${siswa.catatan_khusus || '-'}</td>
+                            <td class="no-print border border-gray-300 px-4 py-1 text-center">
+                              <button onclick="deleteData(currentData.find(d => d.id === '${siswa.id}'))" class="text-red-500 hover:text-red-700">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                `}
+                
+                </div>
+                
+                <!-- Section Dibuat pada dan Tanda Tangan -->
+                <div class="signature-section" style="page-break-inside: avoid;">
+                  <div class="pt-4 pb-2 mt-4 created-date-section">
+                    <p class="text-sm text-gray-500 text-center">Dibuat pada: ${new Date(viewingJurnal.timestamp).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+
+              <!-- Area Tanda Tangan -->
+                  <div class="mt-2 pt-2">
+                <div class="grid grid-cols-2 gap-6">
+                  <div>
+                      <p class="text-center font-medium mb-2">Guru/Pembina</p>
+                      <div class="signature-box mb-2">
+                      Tanda Tangan
+                    </div>
+                    <p class="text-center font-medium">${currentUser.nama}</p>
+                    <p class="text-center text-sm text-gray-600">NIP: ${currentData.find(d => d.type === 'user' && d.id === currentUser.userId)?.nip_nuptk || '................'}</p>
+                  </div>
+                  <div>
+                      <p class="text-center font-medium mb-2">Kepala Sekolah</p>
+                      <div class="signature-box mb-2">
+                      Tanda Tangan
+                    </div>
+                    ${(() => {
+                      const userRecord = currentData.find(d => d.type === 'user' && d.id === currentUser.userId);
+                      const sekolahUser = userRecord ? userRecord.asal_sekolah : '';
+                      const sekolahData = currentData.find(d => d.type === 'sekolah' && d.nama_sekolah === sekolahUser);
+                      
+                      if (sekolahData) {
+                        return `
+                          <p class="text-center font-medium">${sekolahData.kepala_sekolah}</p>
+                          <p class="text-center text-sm text-gray-600">NIP: ${sekolahData.nip_kepala_sekolah}</p>
+                        `;
+                      } else {
+                        return `
+                          <p class="text-center font-medium">................................</p>
+                          <p class="text-center text-sm text-gray-600">NIP: ................</p>
+                        `;
+                      }
+                    })()}
+                  </div>
+                  </div>
+                </div>
+                </div>
+                
+                <div class="flex gap-2 no-print mt-6 pt-6 border-t-2 border-gray-200">
+                  ${currentUser && currentUser.role === 'guru' && viewingJurnal.guru_id === currentUser.userId ? `
+                    <button onclick="editJurnal('${viewingJurnal.id}')" class="flex-1 px-4 py-3 rounded-lg text-white" style="background: ${config.primary_color};">
+                      ✏️ Edit Jurnal
+                    </button>
+                  ` : ''}
+                  <button onclick="viewingJurnal=null; currentView=${currentUser && currentUser.role === 'guru' ? "'riwayat-jurnal'" : "'rekap-jurnal'"}; render();" class="flex-1 px-4 py-3 rounded-lg border-2 border-gray-300">
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'edit-jurnal' && editingJurnal) {
+        // Validasi akses: hanya guru yang bisa mengakses
+        if (!currentUser || currentUser.role !== 'guru') {
+          showToast('Menu ini hanya dapat diakses oleh Guru');
+          editingJurnal = null;
+          currentView = 'user-dashboard';
+          render();
+          return;
+        }
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="editingJurnal=null; currentView='riwayat-jurnal'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Batal</span>
+              </button>
+              <h1 class="text-2xl font-bold">Edit Jurnal Kegiatan</h1>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="bg-white rounded-lg shadow-md p-6">
+                <form id="form-jurnal" onsubmit="saveJurnal(event)" class="space-y-4">
+                  <div>
+                    <label class="block mb-2 font-medium">Program Kokurikuler</label>
+                    <select id="nama_kegiatan" required onchange="autoFillKegiatan()" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                      <option value="">Pilih Program Kokurikuler</option>
+                      ${REFERENCE_DATA.kegiatanKokurikuler.map(k => `<option value="${k}" ${editingJurnal.nama_kegiatan === k ? 'selected' : ''}>${k}</option>`).join('')}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Dimensi Profil Lulusan</label>
+                    <input type="text" id="dimensi" required placeholder="Dimensi" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingJurnal.dimensi}">
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Tema Kegiatan</label>
+                    <textarea id="tema" required placeholder="Tema kegiatan" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" rows="2">${editingJurnal.tema}</textarea>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Bentuk Kegiatan</label>
+                    <textarea id="bentuk" required placeholder="Bentuk kegiatan" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" rows="3">${editingJurnal.bentuk}</textarea>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Tujuan Kegiatan</label>
+                    <textarea id="tujuan" required placeholder="Tujuan kegiatan" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" rows="3">${editingJurnal.tujuan}</textarea>
+                  </div>
+                  
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block mb-2 font-medium">Tanggal Kegiatan</label>
+                      <input type="date" id="tanggal_kegiatan" required class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingJurnal.tanggal_kegiatan}">
+                    </div>
+                    
+                    <div>
+                      <label class="block mb-2 font-medium">Durasi (menit)</label>
+                      <input type="text" id="durasi" required placeholder="Contoh: 120" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingJurnal.durasi}">
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Lokasi</label>
+                    <input type="text" id="lokasi" required placeholder="Lokasi kegiatan" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingJurnal.lokasi}">
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Jumlah Siswa</label>
+                    <input type="number" id="jumlah_siswa" required placeholder="Jumlah siswa yang mengikuti" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingJurnal.jumlah_siswa}">
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Deskripsi Kegiatan</label>
+                    <textarea id="deskripsi" required placeholder="Jelaskan kegiatan yang dilakukan..." class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" rows="4">${editingJurnal.deskripsi || ''}</textarea>
+                  </div>
+                  
+                  <button type="submit" class="w-full py-3 rounded-lg text-white font-medium" style="background: ${config.primary_color};">
+                    Update Jurnal
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'buat-jurnal') {
+        // Validasi akses: hanya guru yang bisa mengakses
+        if (!currentUser || currentUser.role !== 'guru') {
+          showToast('Menu ini hanya dapat diakses oleh Guru');
+          currentView = 'user-dashboard';
+          render();
+          return;
+        }
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="currentView='user-dashboard'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <h1 class="text-2xl font-bold">Buat Jurnal Kegiatan</h1>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="bg-white rounded-lg shadow-md p-6">
+                <form id="form-jurnal" onsubmit="saveJurnal(event)" class="space-y-4">
+                  <div>
+                    <label class="block mb-2 font-medium">Program Kokurikuler</label>
+                    <select id="nama_kegiatan" required onchange="autoFillKegiatan()" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                      <option value="">Pilih Program Kokurikuler</option>
+                      ${REFERENCE_DATA.kegiatanKokurikuler.map(k => `<option value="${k}">${k}</option>`).join('')}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Dimensi Profil Lulusan</label>
+                    <textarea id="dimensi" required placeholder="Dimensi akan terisi otomatis setelah memilih program" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50" rows="2" readonly></textarea>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Tema Kegiatan</label>
+                    <textarea id="tema" required placeholder="Tema akan terisi otomatis setelah memilih program" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50" rows="2" readonly></textarea>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Bentuk Kegiatan</label>
+                    <textarea id="bentuk" required placeholder="Bentuk kegiatan akan terisi otomatis setelah memilih program" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50" rows="3" readonly></textarea>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Tujuan Kegiatan</label>
+                    <textarea id="tujuan" required placeholder="Tujuan akan terisi otomatis setelah memilih program" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50" rows="3" readonly></textarea>
+                  </div>
+                  
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block mb-2 font-medium">Tanggal Kegiatan</label>
+                      <input type="date" id="tanggal_kegiatan" required class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                    </div>
+                    
+                    <div>
+                      <label class="block mb-2 font-medium">Durasi (menit)</label>
+                      <input type="text" id="durasi" required placeholder="Contoh: 120" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Lokasi</label>
+                    <input type="text" id="lokasi" required placeholder="Lokasi kegiatan" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Jumlah Siswa</label>
+                    <input type="number" id="jumlah_siswa" required placeholder="Jumlah siswa yang mengikuti" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Deskripsi Kegiatan</label>
+                    <textarea id="deskripsi" required placeholder="Jelaskan kegiatan yang dilakukan, bagaimana prosesnya, dan hasilnya..." class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" rows="5"></textarea>
+                  </div>
+                  
+                  <button type="submit" class="w-full py-3 rounded-lg text-white font-medium" style="background: ${config.primary_color};">
+                    Simpan Jurnal
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'riwayat-jurnal') {
+        // Validasi akses: hanya guru yang bisa mengakses
+        if (!currentUser || currentUser.role !== 'guru') {
+          showToast('Menu ini hanya dapat diakses oleh Guru');
+          currentView = 'user-dashboard';
+          render();
+          return;
+        }
+        
+        const myJurnals = currentData.filter(d => d.type === 'jurnal' && d.guru_id === currentUser.userId);
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="currentView='user-dashboard'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <h1 class="text-2xl font-bold">Riwayat Jurnal Saya</h1>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              ${myJurnals.length === 0 ? `
+                <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                  <p class="text-gray-500 mb-4">Belum ada jurnal kegiatan</p>
+                  <button onclick="showMenu('buat-jurnal')" class="px-6 py-2 rounded-lg text-white" style="background: ${config.primary_color};">
+                    Buat Jurnal Pertama
+                  </button>
+                </div>
+              ` : `
+                <div class="space-y-4">
+                  ${myJurnals.map(j => `
+                    <div class="bg-white rounded-lg shadow-md p-4">
+                      <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                          <h3 class="font-bold text-lg">${j.nama_kegiatan}</h3>
+                          <p class="text-sm text-gray-600">📅 ${new Date(j.tanggal_kegiatan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        </div>
+                        <button onclick="deleteData(currentData.find(d => d.id === '${j.id}'))" class="text-red-500 p-2">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="space-y-2 text-sm mb-4">
+                        <p><strong>⭐ Dimensi:</strong> ${j.dimensi}</p>
+                        <p><strong>📍 Lokasi:</strong> ${j.lokasi}</p>
+                        <p><strong>⏱️ Durasi:</strong> ${j.durasi} menit</p>
+                        <p><strong>👥 Jumlah Siswa:</strong> ${j.jumlah_siswa} siswa</p>
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <p class="font-semibold mb-2">�� Deskripsi Kegiatan:</p>
+                          <p class="text-gray-700 whitespace-pre-line leading-relaxed">${j.deskripsi || '-'}</p>
+                        </div>
+                      </div>
+                      <div class="flex gap-2">
+                        <button onclick="viewJurnalDetail('${j.id}')" class="flex-1 px-4 py-2 rounded-lg text-white" style="background: ${config.secondary_color};">
+                          📄 Detail Jurnal
+                        </button>
+                        <button onclick="editJurnal('${j.id}')" class="flex-1 px-4 py-2 rounded-lg border-2" style="border-color: ${config.primary_color}; color: ${config.primary_color};">
+                          ✏️ Edit
+                        </button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'rekap-jurnal') {
+        // Ambil semua guru yang valid (menggunakan 'peran' bukan 'role' karena data disimpan dengan 'peran')
+        const allGurus = currentData.filter(d => d.type === 'user' && d.peran === 'guru' && d.id);
+        
+        // Ambil semua jurnal yang dibuat oleh guru
+        // Filter sederhana: hanya jurnal yang memiliki guru_id dan nama_kegiatan
+        const allJurnals = currentData.filter(d => {
+          if (d.type !== 'jurnal') return false;
+          // Pastikan jurnal memiliki guru_id yang tidak kosong
+          if (!d.guru_id) return false;
+          // Pastikan jurnal memiliki nama_kegiatan yang tidak kosong (untuk menghindari data dummy)
+          if (!d.nama_kegiatan || String(d.nama_kegiatan).trim() === '') return false;
+          // Tampilkan semua jurnal yang memiliki guru_id dan nama_kegiatan
+          // Tidak perlu memeriksa apakah guru ada di daftar, karena mungkin guru sudah dihapus
+          return true;
+        });
+        
+        // Statistik umum
+        const totalJurnals = allJurnals.length;
+        const totalGurus = allGurus.length;
+        const totalSiswa = allJurnals.reduce((sum, j) => {
+          const jumlahSiswa = parseInt(j.jumlah_siswa) || 0;
+          return sum + (jumlahSiswa > 0 ? jumlahSiswa : 0);
+        }, 0);
+        const totalDurasi = allJurnals.reduce((sum, j) => {
+          // Durasi disimpan dalam menit, langsung jumlahkan
+          const durasi = parseInt(j.durasi) || 0;
+          return sum + durasi;
+        }, 0);
+        
+        // Rekap per guru
+        const rekapPerGuru = allGurus.map(guru => {
+          // Gunakan String() untuk memastikan perbandingan yang benar
+          const jurnalsGuru = allJurnals.filter(j => {
+            const jurnalGuruId = String(j.guru_id || '').trim();
+            const guruId = String(guru.id || '').trim();
+            return jurnalGuruId === guruId && jurnalGuruId !== '';
+          });
+          const totalSiswaGuru = jurnalsGuru.reduce((sum, j) => {
+            const jumlahSiswa = parseInt(j.jumlah_siswa) || 0;
+            return sum + (jumlahSiswa > 0 ? jumlahSiswa : 0);
+          }, 0);
+          const totalDurasiGuru = jurnalsGuru.reduce((sum, j) => {
+            // Durasi disimpan dalam menit, jadi langsung jumlahkan
+            const durasi = parseInt(j.durasi) || 0;
+            return sum + durasi;
+          }, 0);
+          return {
+            guru: guru,
+            jumlahJurnal: jurnalsGuru.length,
+            totalSiswa: totalSiswaGuru,
+            totalDurasi: totalDurasiGuru,
+            jurnals: jurnalsGuru
+          };
+        }).filter(rekap => rekap.jumlahJurnal > 0).sort((a, b) => b.jumlahJurnal - a.jumlahJurnal);
+        
+        // Rekap per program
+        // Daftar program kokurikuler yang valid
+        const validPrograms = REFERENCE_DATA.kegiatanKokurikuler || [];
+        
+        const rekapPerProgram = {};
+        allJurnals.forEach(j => {
+          // Pastikan nama_kegiatan valid dan tidak kosong
+          const program = String(j.nama_kegiatan || '').trim();
+          if (!program || program === '') return; // Skip jika nama_kegiatan kosong
+          
+          // Pastikan program ada di daftar program kokurikuler yang valid
+          // Atau jika tidak ada di daftar, tetap tampilkan jika jurnal memiliki data lengkap
+          const isValidProgram = validPrograms.includes(program);
+          if (!isValidProgram && (!j.tanggal_kegiatan || !j.deskripsi)) return; // Skip data dummy
+          
+          if (!rekapPerProgram[program]) {
+            rekapPerProgram[program] = { jumlah: 0, totalSiswa: 0, totalDurasi: 0 };
+          }
+          rekapPerProgram[program].jumlah++;
+          const jumlahSiswa = parseInt(j.jumlah_siswa) || 0;
+          const durasi = parseInt(j.durasi) || 0;
+          rekapPerProgram[program].totalSiswa += jumlahSiswa > 0 ? jumlahSiswa : 0;
+          rekapPerProgram[program].totalDurasi += durasi > 0 ? durasi : 0;
+        });
+        const rekapProgramArray = Object.entries(rekapPerProgram)
+          .map(([program, data]) => ({
+            program,
+            ...data
+          }))
+          .filter(rekap => rekap.jumlah > 0) // Hanya tampilkan program yang memiliki jurnal
+          .sort((a, b) => b.jumlah - a.jumlah);
+        
+        // Hitung total jurnal untuk pie chart
+        const totalJurnalProgram = rekapProgramArray.reduce((sum, r) => sum + r.jumlah, 0);
+        
+        // Rekap per bulan (untuk grafik)
+        const rekapPerBulan = {};
+        allJurnals.forEach(j => {
+          if (!j.tanggal_kegiatan) return;
+          const date = new Date(j.tanggal_kegiatan);
+          // Validasi tanggal
+          if (isNaN(date.getTime())) return;
+          const bulanKey = date.toLocaleDateString('id-ID', { year: 'numeric', month: 'long' });
+          if (!rekapPerBulan[bulanKey]) {
+            rekapPerBulan[bulanKey] = 0;
+          }
+          rekapPerBulan[bulanKey]++;
+        });
+        const rekapBulanArray = Object.entries(rekapPerBulan)
+          .map(([bulan, jumlah]) => ({ bulan, jumlah }))
+          .sort((a, b) => new Date(a.bulan) - new Date(b.bulan));
+        
+        // Hitung tinggi maksimal untuk grafik
+        const maxJumlah = Math.max(...rekapBulanArray.map(r => r.jumlah), 1);
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="currentView='user-dashboard'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <h1 class="text-2xl font-bold">📊 Rekap Jurnal Kegiatan</h1>
+              <p class="text-sm opacity-90 mt-1">Perkembangan jurnal kegiatan yang dibuat oleh guru</p>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <!-- Statistik Umum -->
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${totalJurnals}</div>
+                  <div class="text-sm text-gray-600">Total Jurnal</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${totalGurus}</div>
+                  <div class="text-sm text-gray-600">Total Guru</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${totalSiswa}</div>
+                  <div class="text-sm text-gray-600">Total Siswa</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${Math.round(totalDurasi / 60)}</div>
+                  <div class="text-sm text-gray-600">Total Jam</div>
+                </div>
+              </div>
+              
+              <!-- Grafik Perkembangan Bulanan -->
+              <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">📈 Grafik Perkembangan Bulanan</h2>
+                ${rekapBulanArray.length === 0 ? `
+                  <p class="text-gray-500 text-center py-8">Belum ada data jurnal</p>
+                ` : `
+                  <div class="flex items-end justify-between gap-2 h-64 border-b-2 border-gray-200 pb-4">
+                    ${rekapBulanArray.map(r => {
+                      const height = (r.jumlah / maxJumlah) * 100;
+                      return `
+                        <div class="flex-1 flex flex-col items-center">
+                          <div class="w-full flex items-end justify-center" style="height: 200px;">
+                            <div class="w-full rounded-t-lg transition-all hover:opacity-80" 
+                                 style="background: linear-gradient(to top, ${config.primary_color}, ${config.secondary_color}); height: ${height}%; min-height: ${r.jumlah > 0 ? '20px' : '0'};"
+                                 title="${r.bulan}: ${r.jumlah} jurnal">
+                            </div>
+                          </div>
+                          <div class="mt-2 text-xs text-gray-600 text-center" style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">
+                            ${r.bulan.split(' ')[0]}
+                          </div>
+                          <div class="text-xs font-semibold mt-1" style="color: ${config.primary_color};">${r.jumlah}</div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                `}
+              </div>
+              
+              <!-- Pie Chart Distribusi Program -->
+              <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">🥧 Distribusi Jurnal Per Program</h2>
+                ${rekapProgramArray.length === 0 ? `
+                  <p class="text-gray-500 text-center py-8">Belum ada data program</p>
+                ` : `
+                  <div class="flex flex-col md:flex-row gap-6 items-center justify-center">
+                    <!-- Pie Chart SVG -->
+                    <div class="flex-shrink-0">
+                      <svg width="300" height="300" viewBox="0 0 300 300" class="mx-auto">
+                        ${(() => {
+                          const total = rekapProgramArray.reduce((sum, r) => sum + r.jumlah, 0);
+                          let currentAngle = -90; // Mulai dari atas
+                          const colors = [
+                            '#065f46', '#047857', '#059669', '#10b981', '#34d399',
+                            '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5', '#f0fdf4'
+                          ];
+                          
+                          return rekapProgramArray.map((rekap, idx) => {
+                            const percentage = (rekap.jumlah / total) * 100;
+                            const angle = (rekap.jumlah / total) * 360;
+                            const startAngle = currentAngle;
+                            const endAngle = currentAngle + angle;
+                            
+                            // Hitung koordinat untuk path
+                            const startX = 150 + 120 * Math.cos((startAngle * Math.PI) / 180);
+                            const startY = 150 + 120 * Math.sin((startAngle * Math.PI) / 180);
+                            const endX = 150 + 120 * Math.cos((endAngle * Math.PI) / 180);
+                            const endY = 150 + 120 * Math.sin((endAngle * Math.PI) / 180);
+                            const largeArcFlag = angle > 180 ? 1 : 0;
+                            
+                            const pathData = [
+                              `M 150 150`,
+                              `L ${startX} ${startY}`,
+                              `A 120 120 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+                              `Z`
+                            ].join(' ');
+                            
+                            const color = colors[idx % colors.length];
+                            currentAngle += angle;
+                            
+                            return `<path d="${pathData}" fill="${color}" stroke="white" stroke-width="2" 
+                                     style="cursor: pointer; transition: opacity 0.3s;" 
+                                     onmouseover="this.style.opacity='0.8'" 
+                                     onmouseout="this.style.opacity='1'"
+                                     title="${rekap.program}: ${rekap.jumlah} jurnal (${percentage.toFixed(1)}%)" />`;
+                          }).join('');
+                        })()}
+                        <!-- Center circle untuk efek donut chart (opsional) -->
+                        <circle cx="150" cy="150" r="60" fill="white" />
+                        <text x="150" y="145" text-anchor="middle" class="text-2xl font-bold" fill="${config.primary_color}">
+                          ${totalJurnalProgram}
+                        </text>
+                        <text x="150" y="165" text-anchor="middle" class="text-sm" fill="#6b7280">
+                          Total
+                        </text>
+                      </svg>
+                    </div>
+                    
+                    <!-- Legend -->
+                    <div class="flex-1">
+                      <div class="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                        ${rekapProgramArray.map((rekap, idx) => {
+                          const percentage = ((rekap.jumlah / rekapProgramArray.reduce((sum, r) => sum + r.jumlah, 0)) * 100).toFixed(1);
+                          const colors = [
+                            '#065f46', '#047857', '#059669', '#10b981', '#34d399',
+                            '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5', '#f0fdf4'
+                          ];
+                          const color = colors[idx % colors.length];
+                          return `
+                            <div class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded">
+                              <div class="w-4 h-4 rounded" style="background-color: ${color}; flex-shrink: 0;"></div>
+                              <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium truncate" title="${rekap.program}">${rekap.program}</p>
+                                <p class="text-xs text-gray-500">${rekap.jumlah} jurnal (${percentage}%)</p>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    </div>
+                  </div>
+                `}
+              </div>
+              
+              <!-- Tabel Rekap Per Guru -->
+              <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">👥 Rekap Per Guru</h2>
+                ${rekapPerGuru.length === 0 ? `
+                  <p class="text-gray-500 text-center py-4">Belum ada data guru</p>
+                ` : `
+                  <div class="overflow-x-auto">
+                    <table class="w-full">
+                      <thead>
+                        <tr class="border-b-2" style="border-color: ${config.primary_color};">
+                          <th class="px-4 py-3 text-left font-semibold">No</th>
+                          <th class="px-4 py-3 text-left font-semibold">Nama Guru</th>
+                          <th class="px-4 py-3 text-center font-semibold">Jumlah Jurnal</th>
+                          <th class="px-4 py-3 text-center font-semibold">Total Siswa</th>
+                          <th class="px-4 py-3 text-center font-semibold">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${rekapPerGuru.map((rekap, idx) => `
+                          <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3">${idx + 1}</td>
+                            <td class="px-4 py-3 font-medium">${rekap.guru.nama_lengkap || rekap.guru.nama || 'Tidak Diketahui'}</td>
+                            <td class="px-4 py-3 text-center">
+                              <span class="px-3 py-1 rounded-full text-sm font-semibold text-white" style="background: ${config.primary_color};">
+                                ${rekap.jumlahJurnal}
+                              </span>
+                            </td>
+                            <td class="px-4 py-3 text-center">${rekap.totalSiswa || 0}</td>
+                            <td class="px-4 py-3 text-center">
+                              <button onclick="viewGuruJurnals('${rekap.guru.id}')" 
+                                      class="px-3 py-1 rounded-lg text-white text-sm" 
+                                      style="background: ${config.secondary_color};">
+                                Lihat Detail
+                              </button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                `}
+              </div>
+              
+              <!-- Tabel Rekap Per Program -->
+              <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">🎯 Rekap Per Program</h2>
+                ${rekapProgramArray.length === 0 ? `
+                  <p class="text-gray-500 text-center py-4">Belum ada data program</p>
+                ` : `
+                  <div class="overflow-x-auto">
+                    <table class="w-full">
+                      <thead>
+                        <tr class="border-b-2" style="border-color: ${config.primary_color};">
+                          <th class="px-4 py-3 text-left font-semibold">No</th>
+                          <th class="px-4 py-3 text-left font-semibold">Program Kokurikuler</th>
+                          <th class="px-4 py-3 text-center font-semibold">Jumlah Jurnal</th>
+                          <th class="px-4 py-3 text-center font-semibold">Total Siswa</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${rekapProgramArray.map((rekap, idx) => `
+                          <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3">${idx + 1}</td>
+                            <td class="px-4 py-3 font-medium">${rekap.program}</td>
+                            <td class="px-4 py-3 text-center">
+                              <span class="px-3 py-1 rounded-full text-sm font-semibold text-white" style="background: ${config.secondary_color};">
+                                ${rekap.jumlah}
+                              </span>
+                            </td>
+                            <td class="px-4 py-3 text-center">${rekap.totalSiswa}</td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'detail-guru-jurnals' && viewingGuruId) {
+        const guru = currentData.find(d => d.type === 'user' && d.id === viewingGuruId);
+        
+        if (!guru || guru.peran !== 'guru') {
+          currentView = 'rekap-jurnal';
+          viewingGuruId = null;
+          render();
+          return;
+        }
+        
+        // Filter jurnal yang valid (hanya jurnal yang memiliki data lengkap)
+        const jurnalsGuru = currentData.filter(d => {
+          if (d.type !== 'jurnal') return false;
+          if (String(d.guru_id) !== String(viewingGuruId)) return false;
+          // Pastikan jurnal memiliki nama_kegiatan (minimal requirement)
+          if (!d.nama_kegiatan) return false;
+          return true;
+        });
+        
+        // Statistik guru
+        const totalSiswa = jurnalsGuru.reduce((sum, j) => {
+          const jumlahSiswa = parseInt(j.jumlah_siswa) || 0;
+          return sum + (jumlahSiswa > 0 ? jumlahSiswa : 0);
+        }, 0);
+        const totalDurasi = jurnalsGuru.reduce((sum, j) => {
+          // Durasi disimpan dalam menit, langsung jumlahkan
+          const durasi = parseInt(j.durasi) || 0;
+          return sum + durasi;
+        }, 0);
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="viewingGuruId=null; currentView='rekap-jurnal'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali ke Rekap</span>
+              </button>
+              <h1 class="text-2xl font-bold">📋 Jurnal Kegiatan - ${guru.nama_lengkap || guru.nama || 'Tidak Diketahui'}</h1>
+              <p class="text-sm opacity-90 mt-1">${guru.nip_nuptk ? 'NIP/NUPTK: ' + guru.nip_nuptk : ''} ${guru.asal_sekolah ? '| ' + guru.asal_sekolah : ''}</p>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <!-- Statistik Guru -->
+              <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${jurnalsGuru.length}</div>
+                  <div class="text-sm text-gray-600">Total Jurnal</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${totalSiswa}</div>
+                  <div class="text-sm text-gray-600">Total Siswa</div>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                  <div class="text-3xl font-bold mb-1" style="color: ${config.primary_color};">${totalDurasi ? (totalDurasi >= 60 ? Math.round(totalDurasi / 60) : (totalDurasi / 60).toFixed(1)) : '0'}</div>
+                  <div class="text-sm text-gray-600">Total Jam</div>
+                </div>
+              </div>
+              
+              <!-- Daftar Jurnal -->
+              ${jurnalsGuru.length === 0 ? `
+                <div class="bg-white rounded-lg shadow-md p-8 text-center">
+                  <p class="text-gray-500 mb-4">Guru ini belum membuat jurnal kegiatan</p>
+                </div>
+              ` : `
+                <div class="space-y-4">
+                  ${jurnalsGuru.sort((a, b) => new Date(b.tanggal_kegiatan) - new Date(a.tanggal_kegiatan)).map(j => `
+                    <div class="bg-white rounded-lg shadow-md p-4">
+                      <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                          <h3 class="font-bold text-lg">${j.nama_kegiatan}</h3>
+                          <p class="text-sm text-gray-600">📅 ${new Date(j.tanggal_kegiatan).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      <div class="space-y-2 text-sm mb-4">
+                        <p><strong>⭐ Dimensi:</strong> ${j.dimensi}</p>
+                        <p><strong>📍 Lokasi:</strong> ${j.lokasi}</p>
+                        <p><strong>⏱️ Durasi:</strong> ${j.durasi} menit</p>
+                        <p><strong>👥 Jumlah Siswa:</strong> ${j.jumlah_siswa} siswa</p>
+                        <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <p class="font-semibold mb-2">📝 Deskripsi Kegiatan:</p>
+                          <p class="text-gray-700 whitespace-pre-line leading-relaxed">${j.deskripsi || '-'}</p>
+                        </div>
+                      </div>
+                      <div class="flex gap-2">
+                        <button onclick="viewJurnalDetail('${j.id}')" class="flex-1 px-4 py-2 rounded-lg text-white" style="background: ${config.secondary_color};">
+                          📄 Detail Jurnal
+                        </button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'sekolah') {
+        const sekolahData = currentData.filter(d => d.type === 'sekolah');
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="currentView='dashboard'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <h1 class="text-2xl font-bold">Data Satuan Pendidikan</h1>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="bg-white rounded-lg shadow-md p-6 mb-4 print-container">
+                <h3 class="text-xl font-bold mb-4">Tambah Data Sekolah</h3>
+                <form id="form-sekolah" onsubmit="addSekolah(event)" class="space-y-3">
+                  <input type="text" id="nama_sekolah" required placeholder="Nama Sekolah" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <input type="text" id="npsn" required placeholder="NPSN" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <input type="text" id="kecamatan" required placeholder="Kecamatan" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <input type="text" id="kabupaten" required placeholder="Kabupaten" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <input type="text" id="kepala_sekolah" required placeholder="Nama Kepala Sekolah" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <input type="text" id="nip_kepala_sekolah" required placeholder="NIP Kepala Sekolah" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <input type="text" id="tahun_pelajaran" required placeholder="Tahun Pelajaran (2024/2025)" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                  <textarea id="alamat_lengkap" required placeholder="Alamat Lengkap Sekolah" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" rows="2"></textarea>
+                  <button type="submit" class="w-full py-2 rounded-lg text-white" style="background: ${config.primary_color};">Simpan</button>
+                </form>
+              </div>
+              
+              <div class="space-y-3">
+                ${sekolahData.map(s => `
+                  <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="flex-1">
+                        <h4 class="font-bold text-lg">${s.nama_sekolah}</h4>
+                        <p class="text-sm text-gray-600">NPSN: ${s.npsn}</p>
+                      </div>
+                      <button onclick="deleteData(currentData.find(d => d.id === '${s.id}'))" class="text-red-500 p-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <p class="text-sm">📍 ${s.alamat_lengkap}</p>
+                    <p class="text-sm">${s.kecamatan}, ${s.kabupaten}</p>
+                    <p class="text-sm">👨������ Kepala Sekolah: ${s.kepala_sekolah}</p>
+                    <p class="text-sm">🆔 NIP: ${s.nip_kepala_sekolah}</p>
+                    <p class="text-sm">📅 Tahun: ${s.tahun_pelajaran}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'guru') {
+        const guruData = currentData.filter(d => d.type === 'user');
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="currentView='dashboard'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <h1 class="text-2xl font-bold">Data User</h1>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="bg-white rounded-lg shadow-md p-6 mb-4 print-container">
+                <h3 class="text-xl font-bold mb-4">${editingGuru ? 'Edit Data User' : 'Tambah Data User'}</h3>
+                <form id="form-guru" onsubmit="saveGuru(event)" class="space-y-3">
+                  <select id="guru_peran" required class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" onchange="toggleMapelField()">
+                    <option value="">Pilih Peran</option>
+                    <option value="guru" ${editingGuru && editingGuru.peran === 'guru' ? 'selected' : ''}>Guru</option>
+                    <option value="kepala_sekolah" ${editingGuru && editingGuru.peran === 'kepala_sekolah' ? 'selected' : ''}>Kepala Sekolah</option>
+                    <option value="pengawas" ${editingGuru && editingGuru.peran === 'pengawas' ? 'selected' : ''}>Pengawas</option>
+                  </select>
+                  <input type="text" id="guru_nama" required placeholder="Nama Lengkap" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingGuru ? editingGuru.nama_lengkap : ''}">
+                  <input type="text" id="guru_nip" required placeholder="NIP/NUPTK" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingGuru ? editingGuru.nip_nuptk : ''}">
+                  <input type="text" id="guru_sekolah" required placeholder="Asal Sekolah" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingGuru ? editingGuru.asal_sekolah : ''}">
+                  <div id="mapel_container" style="display: ${editingGuru && editingGuru.peran === 'kepala_sekolah' ? 'none' : 'block'};">
+                    <input type="text" id="guru_mapel" placeholder="Mata Pelajaran/Bidang (optional)" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg" value="${editingGuru ? editingGuru.mata_pelajaran || '' : ''}">
+                  </div>
+                  
+                  <div class="border-t pt-3 mt-3">
+                    <h4 class="font-bold mb-3">🔐 Akun Login</h4>
+                    <input type="text" id="guru_username" required placeholder="Username untuk login" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg mb-3" value="${editingGuru ? editingGuru.username || '' : ''}">
+                    <input type="password" id="guru_password" ${editingGuru ? '' : 'required'} placeholder="${editingGuru ? 'Kosongkan jika tidak ingin mengubah password' : 'Password (default: username)'}" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg">
+                    <p class="text-xs text-gray-600 mt-2">💡 Jika password kosong, akan menggunakan username sebagai password</p>
+                  </div>
+                  
+                  <div class="flex gap-2">
+                    <button type="submit" class="flex-1 py-2 rounded-lg text-white" style="background: ${config.primary_color};">
+                      ${editingGuru ? 'Update' : 'Simpan'}
+                    </button>
+                    ${editingGuru ? `<button type="button" onclick="cancelEditGuru()" class="px-4 py-2 rounded-lg border-2 border-gray-300">Batal</button>` : ''}
+                  </div>
+                </form>
+              </div>
+              
+              <div class="space-y-3">
+                ${guruData.map(g => `
+                  <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="flex-1">
+                        <h4 class="font-bold">${g.nama_lengkap}</h4>
+                        <p class="text-sm text-gray-600">${g.nip_nuptk}</p>
+                      </div>
+                      <div class="flex gap-2">
+                        <button onclick="editGuru('${g.id}')" class="text-blue-500 p-2">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                          </svg>
+                        </button>
+                        <button onclick="deleteData(currentData.find(d => d.id === '${g.id}'))" class="text-red-500 p-2">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <p class="text-sm">🏫 ${g.asal_sekolah}</p>
+                    <p class="text-sm">👤 ${g.peran === 'guru' ? 'Guru' : g.peran === 'kepala_sekolah' ? 'Kepala Sekolah' : 'Pengawas'}</p>
+                    ${g.mata_pelajaran ? `<p class="text-sm">📚 ${g.mata_pelajaran}</p>` : ''}
+                    <div class="mt-2 pt-2 border-t">
+                      <p class="text-xs text-gray-600">👤 Username: <span class="font-mono font-bold">${g.username || 'Belum diset'}</span></p>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'kegiatan' || currentView === 'dimensi' || currentView === 'tema' || currentView === 'bentuk' || currentView === 'tujuan') {
+        const titles = {
+          'kegiatan': 'Program Kokurikuler',
+          'dimensi': 'Dimensi Profil Lulusan',
+          'tema': 'Tema Kegiatan',
+          'bentuk': 'Bentuk Kegiatan',
+          'tujuan': 'Tujuan Kegiatan'
+        };
+        
+        const dataArrays = {
+          'kegiatan': REFERENCE_DATA.kegiatanKokurikuler,
+          'dimensi': REFERENCE_DATA.dimensiProfil,
+          'tema': REFERENCE_DATA.temaKegiatan,
+          'bentuk': REFERENCE_DATA.bentukKegiatan,
+          'tujuan': REFERENCE_DATA.tujuanKegiatan
+        };
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <button onclick="currentView='${currentUser && currentUser.role === 'admin' ? 'dashboard' : 'user-dashboard'}'; render();" class="mb-4 flex items-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <span class="ml-2">Kembali</span>
+              </button>
+              <h1 class="text-2xl font-bold">${titles[currentView]}</h1>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="space-y-3">
+                ${dataArrays[currentView].map((item, index) => `
+                  <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex items-start gap-3">
+                      <span class="font-bold text-lg" style="color: ${config.primary_color};">${index + 1}.</span>
+                      <div class="flex-1">
+                        <p class="font-bold text-lg mb-2">${typeof item === 'object' ? item.nama : item}</p>
+                        ${typeof item === 'object' && item.deskripsi ? `<p class="text-sm text-gray-700 leading-relaxed">${item.deskripsi}</p>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      if (currentView === 'login') {
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-8 text-center text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <h1 class="text-3xl font-bold mb-2">${config.app_title}</h1>
+              <p class="text-lg">Sistem Manajemen Jurnal</p>
+            </div>
+            
+            <div class="flex-1 p-6">
+              <div class="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
+                <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">Login</h2>
+                
+                <form onsubmit="handleLogin(event)" class="space-y-4">
+                  <div>
+                    <label class="block mb-2 font-medium">Peran</label>
+                    <select id="role" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-600 focus:outline-none">
+                      <option value="">Pilih Peran</option>
+                      <option value="admin">Admin</option>
+                      <option value="guru">Guru</option>
+                      <option value="kepala_sekolah">Kepala Sekolah</option>
+                      <option value="pengawas">Pengawas</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Username</label>
+                    <input type="text" id="username" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-600 focus:outline-none" placeholder="Masukkan username">
+                  </div>
+                  
+                  <div>
+                    <label class="block mb-2 font-medium">Password</label>
+                    <input type="password" id="password" required class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-600 focus:outline-none" placeholder="Masukkan password">
+                  </div>
+                  
+                  <button type="submit" class="w-full py-3 rounded-lg text-white font-medium" style="background: ${config.primary_color};">
+                    Masuk
+                  </button>
+                </form>
+              </div>
+            </div>
+            
+            <div class="p-4 text-center border-t">
+              <p class="text-sm" style="color: ${config.text_color};">${config.footer_text}</p>
+            </div>
+          </div>
+        `;
+      } else if (currentView === 'user-dashboard') {
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <div class="flex justify-between items-center">
+                <div>
+                  <h1 class="text-2xl font-bold">Dashboard ${currentUser.role === 'guru' ? 'Guru' : currentUser.role === 'kepala_sekolah' ? 'Kepala Sekolah' : 'Pengawas'}</h1>
+                  <p class="text-sm opacity-90">Selamat datang, ${currentUser.nama}</p>
+                </div>
+                <button onclick="currentUser=null; currentView='login'; render();" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg">
+                  Keluar
+                </button>
+              </div>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="bg-white rounded-lg shadow-md p-6 mb-4 print-container">
+                <h3 class="text-xl font-bold mb-4">Profil Saya</h3>
+                <div class="space-y-2">
+                  <p><strong>Nama:</strong> ${currentUser.nama}</p>
+                  <p><strong>Username:</strong> ${currentUser.username}</p>
+                  <p><strong>Peran:</strong> ${currentUser.role === 'guru' ? 'Guru' : currentUser.role === 'kepala_sekolah' ? 'Kepala Sekolah' : 'Pengawas'}</p>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                ${currentUser.role === 'guru' ? `
+                <button onclick="showMenu('buat-jurnal')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">📝 Buat Jurnal Kegiatan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('riwayat-jurnal')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">📋 Riwayat Jurnal Saya</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                ` : `
+                <button onclick="showMenu('rekap-jurnal')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">📊 Rekap Jurnal Kegiatan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                `}
+                
+                <button onclick="showMenu('kegiatan')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">🎯 Lihat Program Kokurikuler</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (currentView === 'dashboard') {
+        const sekolahCount = currentData.filter(d => d.type === 'sekolah').length;
+        const guruCount = currentData.filter(d => d.type === 'user').length;
+        const jurnalCount = currentData.filter(d => d.type === 'jurnal').length;
+        
+        app.innerHTML = `
+          <div class="h-full flex flex-col" style="background: ${config.background_color};">
+            <div class="p-6 text-white" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+              <div class="flex justify-between items-center">
+                <div>
+                  <h1 class="text-2xl font-bold">Dashboard Admin</h1>
+                  <p class="text-sm opacity-90">Selamat datang, ${currentUser.nama}</p>
+                </div>
+                <button onclick="currentUser=null; currentView='login'; render();" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg">
+                  Keluar
+                </button>
+              </div>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-auto">
+              <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-6 text-center">
+                  <div class="text-4xl font-bold mb-2" style="color: ${config.primary_color};">${sekolahCount}</div>
+                  <div class="text-sm">Sekolah</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6 text-center">
+                  <div class="text-4xl font-bold mb-2" style="color: ${config.primary_color};">${guruCount}</div>
+                  <div class="text-sm">User</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6 text-center">
+                  <div class="text-4xl font-bold mb-2" style="color: ${config.primary_color};">${jurnalCount}</div>
+                  <div class="text-sm">Jurnal</div>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                  <button id="backup-btn" onclick="backupData()" class="bg-blue-600 text-white rounded-lg shadow p-4 flex flex-col items-center justify-center hover:bg-blue-700 transition">
+                    <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+                    </svg>
+                    <span class="font-medium text-sm">💾 Backup Data</span>
+                  </button>
+                  
+                  <button id="restore-btn" onclick="document.getElementById('restore-file').click()" class="bg-green-600 text-white rounded-lg shadow p-4 flex flex-col items-center justify-center hover:bg-green-700 transition">
+                    <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <span class="font-medium text-sm">📥 Restore Data</span>
+                  </button>
+                  <input type="file" id="restore-file" accept=".json" style="display: none;" onchange="restoreData(event)">
+                </div>
+                
+                <button onclick="showMenu('sekolah')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">🏫 Data Satuan Pendidikan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('guru')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">👨��🏫 Data Guru</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('kegiatan')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">🎯 Program Kokurikuler</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('dimensi')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">⭐ Dimensi Profil Lulusan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('tema')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">🎨 Tema Kegiatan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('bentuk')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">📋 Bentuk Kegiatan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+                
+                <button onclick="showMenu('tujuan')" class="w-full bg-white rounded-lg shadow p-4 flex justify-between items-center hover:shadow-lg transition">
+                  <span class="font-medium">🎯 Tujuan Kegiatan</span>
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // API Functions - Menggunakan backend API untuk menyimpan data
+    const API_BASE_URL = window.location.origin;
+    
+    async function loadDataFromStorage() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/data`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error loading data from API:', error);
+        // Fallback ke localStorage jika API tidak tersedia
+        try {
+          const stored = localStorage.getItem('jurnal_kokurikuler_data');
+          if (stored) {
+            return JSON.parse(stored);
+          }
+        } catch (e) {
+          console.error('Error loading from localStorage fallback:', e);
+        }
+        return [];
+      }
+    }
+    
+    async function saveDataToStorage(data) {
+      // Function ini tidak digunakan lagi karena kita menggunakan createData/updateData langsung
+      // Tapi tetap ada untuk kompatibilitas
+      return { isOk: true };
+    }
+    
+    async function createData(record) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(record)
+        });
+        
+        const result = await response.json();
+        
+        if (result.isOk) {
+          // Refresh data dari server
+          currentData = await loadDataFromStorage();
+          render();
+          setTimeout(attachEventListeners, 0);
+        }
+        return result;
+      } catch (error) {
+        console.error('Error creating data:', error);
+        // Fallback ke localStorage
+        try {
+          currentData.push(record);
+          localStorage.setItem('jurnal_kokurikuler_data', JSON.stringify(currentData));
+          render();
+          setTimeout(attachEventListeners, 0);
+          return { isOk: true };
+        } catch (e) {
+          return { isOk: false, error: error.message };
+        }
+      }
+    }
+    
+    async function updateData(record) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/data/${record.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(record)
+        });
+        
+        const result = await response.json();
+        
+        if (result.isOk) {
+          // Refresh data dari server
+          currentData = await loadDataFromStorage();
+          render();
+          setTimeout(attachEventListeners, 0);
+        }
+        return result;
+      } catch (error) {
+        console.error('Error updating data:', error);
+        // Fallback ke localStorage
+        try {
+          const index = currentData.findIndex(d => d.id === record.id);
+          if (index !== -1) {
+            currentData[index] = record;
+            localStorage.setItem('jurnal_kokurikuler_data', JSON.stringify(currentData));
+            render();
+            setTimeout(attachEventListeners, 0);
+            return { isOk: true };
+          }
+          return { isOk: false, error: 'Record not found' };
+        } catch (e) {
+          return { isOk: false, error: error.message };
+        }
+      }
+    }
+    
+    async function deleteDataFromStorage(record) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/data/${record.id}`, {
+          method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.isOk) {
+          // Refresh data dari server
+          currentData = await loadDataFromStorage();
+          render();
+          setTimeout(attachEventListeners, 0);
+        }
+        return result;
+      } catch (error) {
+        console.error('Error deleting data:', error);
+        // Fallback ke localStorage
+        try {
+          const index = currentData.findIndex(d => d.id === record.id);
+          if (index !== -1) {
+            currentData.splice(index, 1);
+            localStorage.setItem('jurnal_kokurikuler_data', JSON.stringify(currentData));
+            render();
+            setTimeout(attachEventListeners, 0);
+            return { isOk: true };
+          }
+          return { isOk: false, error: 'Record not found' };
+        } catch (e) {
+          return { isOk: false, error: error.message };
+        }
+      }
+    }
+
+    const dataHandler = {
+      onDataChanged(data) {
+        currentData = data;
+        render();
+        setTimeout(attachEventListeners, 0);
+      }
+    };
+
+    function initApp() {
+      try {
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => {
+            render();
+          },
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () => config.primary_color || defaultConfig.primary_color,
+                set: (value) => {
+                  config.primary_color = value;
+                  window.elementSdk.setConfig({ primary_color: value });
+                }
+              }
+            ],
+            borderables: [],
+            fontEditable: undefined,
+            fontSizeable: undefined
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ["app_title", config.app_title || defaultConfig.app_title],
+            ["footer_text", config.footer_text || defaultConfig.footer_text]
+          ])
+        });
+      }
+
+        // Load data from API
+        loadDataFromStorage().then(data => {
+          currentData = data;
+          dataHandler.onDataChanged(currentData);
+        }).catch(error => {
+          console.error('Error loading initial data:', error);
+          currentData = [];
+          dataHandler.onDataChanged(currentData);
+        });
+      
+      render();
+        setTimeout(attachEventListeners, 100);
+      } catch (error) {
+        console.error('Init error:', error);
+        const app = document.getElementById('app');
+        if (app) {
+          app.innerHTML = '<div class="p-6"><h1 class="text-2xl font-bold text-red-600">Error: ' + error.message + '</h1><p>Silakan refresh halaman atau hubungi administrator.</p></div>';
+        }
+      }
+    }
+
+    // Expose functions to global scope for onclick handlers
+    window.backupData = function() {
+      try {
+        if (!currentData || currentData.length === 0) {
+          showToast('⚠️ Tidak ada data untuk di-backup!');
+          return;
+        }
+        
+        const backupData = {
+          timestamp: new Date().toISOString(),
+          version: "1.0",
+          data: currentData
+        };
+        
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `jurnal-backup-${new Date().toISOString().split('T')[0]}.json`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        
+        setTimeout(() => {
+          if (link.parentNode) {
+            document.body.removeChild(link);
+          }
+          URL.revokeObjectURL(url);
+        }, 200);
+        
+        showToast('✅ Backup berhasil diunduh!');
+      } catch (error) {
+        showToast('❌ Gagal membuat backup: ' + error.message);
+        console.error('Backup error:', error);
+      }
+    };
+    
+    window.restoreData = function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const backupData = JSON.parse(e.target.result);
+          
+          if (!backupData.data || !Array.isArray(backupData.data)) {
+            showToast('❌ File backup tidak valid!');
+            event.target.value = '';
+            return;
+          }
+          
+          const container = document.createElement('div');
+          container.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+          container.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 class="text-lg font-bold mb-4">⚠️ Konfirmasi Restore</h3>
+              <p class="mb-6">Restore data akan menghapus semua data yang ada saat ini dan menggantinya dengan data dari backup (${backupData.data.length} record). Apakah Anda yakin?</p>
+              <div class="flex gap-3">
+                <button id="confirm-restore" class="flex-1 px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700">Ya, Restore</button>
+                <button id="cancel-restore" class="flex-1 px-4 py-2 rounded-lg border-2 border-gray-300 hover:bg-gray-100">Batal</button>
+              </div>
+            </div>
+          `;
+          
+          document.body.appendChild(container);
+          
+          document.getElementById('confirm-restore').onclick = async () => {
+            const confirmBtn = document.getElementById('confirm-restore');
+            const cancelBtn = document.getElementById('cancel-restore');
+            confirmBtn.disabled = true;
+            cancelBtn.disabled = true;
+            confirmBtn.textContent = '⏳ Menghapus data lama...';
+            
+            try {
+              // Hapus semua data lama dari server
+              const deleteResponse = await fetch(`${API_BASE_URL}/api/data`, {
+                method: 'DELETE'
+              });
+              await deleteResponse.json();
+              
+              confirmBtn.textContent = `⏳ Menambahkan ${backupData.data.length} data...`;
+              
+              // Bersihkan data dari backup (hapus __backendId jika ada)
+              const cleanData = backupData.data.map(record => {
+                const cleanRecord = { ...record };
+                delete cleanRecord.__backendId;
+                return cleanRecord;
+              });
+              
+              // Gunakan bulk insert API
+              const bulkResponse = await fetch(`${API_BASE_URL}/api/data/bulk`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ data: cleanData })
+              });
+              
+              const bulkResult = await bulkResponse.json();
+              
+              if (bulkResult.isOk) {
+                // Refresh data dari server
+                currentData = await loadDataFromStorage();
+                render();
+                setTimeout(attachEventListeners, 0);
+                
+                showToast(`✅ Data berhasil di-restore! (${bulkResult.successCount} record)`);
+              } else {
+                showToast('❌ Gagal restore data: ' + (bulkResult.error || 'Unknown error'));
+              }
+              
+              if (document.body.contains(container)) {
+                document.body.removeChild(container);
+              }
+            } catch (error) {
+              showToast('❌ Gagal restore data: ' + error.message);
+              console.error('Restore error:', error);
+              if (document.body.contains(container)) {
+                document.body.removeChild(container);
+              }
+            }
+            
+            event.target.value = '';
+          };
+          
+          document.getElementById('cancel-restore').onclick = () => {
+            document.body.removeChild(container);
+            event.target.value = '';
+          };
+          
+        } catch (error) {
+          showToast('❌ Gagal membaca file backup: ' + error.message);
+          console.error('Parse error:', error);
+          event.target.value = '';
+        }
+      };
+      
+      reader.onerror = () => {
+        showToast('❌ Gagal membaca file!');
+        event.target.value = '';
+      };
+      
+      reader.readAsText(file);
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ab3d907c431e783',t:'MTc2NTI3NjQ0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
